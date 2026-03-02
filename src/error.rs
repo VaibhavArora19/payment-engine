@@ -1,4 +1,4 @@
-use thiserror::{Error};
+use thiserror::Error;
 
 #[derive(Debug, Error)]
 pub enum AmountError {
@@ -15,5 +15,8 @@ pub enum AmountError {
     Overflow,
 
     #[error("insufficient funds")]
-    InsufficientFunds
+    InsufficientFunds,
+
+    #[error("account locked")]
+    AccountLocked,
 }
