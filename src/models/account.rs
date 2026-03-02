@@ -1,9 +1,10 @@
 use crate::{error::AmountError, models::amount::Amount};
 
+//i64 + i64 + u16 + bool -> 8 + 8 + 2 + 1 bytes -> 24 bytes(efficient data packing)
 pub struct Account {
-    pub client: u16,
     pub available: Amount,
     pub held: Amount,
+    pub client: u16,
     pub locked: bool,
 }
 
@@ -79,7 +80,7 @@ impl Account {
             return Err(AmountError::InsufficientFunds);
         }
         self.held = self.held.checked_sub(amount)?;
-        // total drops — money is gone
+        //lock the account
         self.locked = true;
         Ok(())
     }

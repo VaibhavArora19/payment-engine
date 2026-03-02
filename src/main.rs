@@ -4,5 +4,5 @@ pub mod io;
 pub mod models;
 
 fn main() {
-    println!("Hello, world!");
+    env_logger::init();
 }
