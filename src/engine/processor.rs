@@ -85,10 +85,11 @@ impl Engine {
             None => return Ok(()),
         };
 
-        let account = self
-            .accounts
-            .entry(raw.client)
-            .or_insert_with(|| Account::new(raw.client));
+        //Do not add withdrawal for unknown client
+        let Some(account) = self.accounts.get_mut(&raw.client) else {
+            log::warn!("withdrawal tx {} for unknown client, skipping", raw.tx);
+            return Ok(());
+        };
 
         if let Err(e) = account.withdraw(amount) {
             log::warn!("withdrawal tx {} failed: {}", raw.tx, e);
@@ -337,6 +338,14 @@ mod tests {
         engine.process(raw_withdrawal(1, 2, "40.0")).unwrap();
 
         assert!(!engine.transactions.contains_key(&2));
+    }
+
+    #[test]
+    fn withdrawal_for_unknown_client_does_not_create_account() {
+        let mut engine = Engine::new();
+        engine.process(raw_withdrawal(99, 1, "50.0")).unwrap();
+
+        assert!(!engine.accounts.contains_key(&99));
     }
 
     // --------------- Dispute ---------------

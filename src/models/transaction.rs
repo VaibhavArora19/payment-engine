@@ -35,8 +35,6 @@ pub enum TxType {
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum TxState {
-    Active,      // normal, nothing happening
-    Disputed,    // under dispute, amount is held
-    Resolved,    // dispute resolved
-    ChargedBack, // chargeback occurred, lock the account
+    Active,   // normal, nothing happening
+    Disputed, // under dispute, amount is held
 }
