@@ -20,7 +20,7 @@ fn main() {
     });
 
     let file = File::open(&path).unwrap_or_else(|e| {
-        eprintln!("error opening file {}: {}", path, e);
+        eprintln!("error opening file {path}: {e}");
         process::exit(1);
     });
 
@@ -31,19 +31,19 @@ fn main() {
         match result {
             Ok(raw) => {
                 if let Err(e) = engine.process(raw) {
-                    eprintln!("fatal error: {}", e);
+                    eprintln!("fatal error: {e}");
                     process::exit(1);
                 }
             }
             Err(e) => {
                 // malformed row log and skip, don't crash
-                log::warn!("skipping malformed row: {}", e);
+                log::warn!("skipping malformed row: {e}");
             }
         }
     }
 
     if let Err(e) = write_accounts(std::io::stdout(), engine.accounts()) {
-        eprintln!("error writing output: {}", e);
+        eprintln!("error writing output: {e}");
         process::exit(1);
     }
 }

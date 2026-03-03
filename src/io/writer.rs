@@ -9,7 +9,7 @@ pub fn write_accounts<W: Write>(
     let mut wtr = csv::Writer::from_writer(writer);
 
     // write header manually for clarity
-    wtr.write_record(&["client", "available", "held", "total", "locked"])?;
+    wtr.write_record(["client", "available", "held", "total", "locked"])?;
 
     for account in accounts {
         wtr.write_record(&[
