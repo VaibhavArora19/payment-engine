@@ -103,9 +103,9 @@ Client IDs are `u16`, so at most **65,535** accounts can exist. Each account is 
 
 If the workload requires retaining hundreds of millions of simultaneously active/disputed transactions (e.g., a system processing all 4.3 billion possible `u32` transaction IDs where nothing ever resolves), the in-memory `HashMap` would exhaust available RAM.
 
-At that scale, the `transactions` map should be replaced with a disk-backed key-value store:
+At that scale, the `deposits` map should be replaced with a disk-backed key-value store:
 
-RocksDB (embedded, disk-backed) or Redis (distributed, in-memory) would be natural fits. The interface to swap either in would be a trait over the `transactions` field — the processor logic itself would not change, only the storage backend.
+RocksDB (embedded, disk-backed) or Redis (distributed, in-memory) would be natural fits. The interface to swap either in would be a trait over the `deposits` field — the processor logic itself would not change, only the storage backend.
 
 ---
 

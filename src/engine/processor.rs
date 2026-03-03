@@ -329,7 +329,7 @@ mod tests {
     }
 
     #[test]
-    fn withdrawal_not_stored_in_transactions() {
+    fn withdrawal_not_stored_in_deposits() {
         let mut engine = Engine::new();
         engine.process(raw_deposit(1, 1, "100.0")).unwrap();
         engine.process(raw_withdrawal(1, 2, "40.0")).unwrap();
