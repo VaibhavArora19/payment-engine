@@ -8,7 +8,7 @@ A streaming payments engine that processes transactions from a CSV file, maintai
 cargo run -- transactions.csv > accounts.csv
 ```
 
-Input is read from the file path argument. Output is written to stdout.
+Input is read from the file path argument. Output is written to stdout. You'll need to provide your own CSV input file.
 
 ## Building and Testing
 
