@@ -17,7 +17,7 @@ fn main() {
     env_logger::init();
 
     let path = env::args().nth(1).unwrap_or_else(|| {
-        eprintln!("usage: payments-engine <transactions.csv>");
+        eprintln!("usage: cargo run -- <transactions.csv>");
         process::exit(1);
     });
 
