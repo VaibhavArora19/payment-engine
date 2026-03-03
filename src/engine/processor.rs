@@ -121,10 +121,11 @@ impl Engine {
         let amount = tx.amount;
         tx.state = TxState::Disputed;
 
-        let account = self
-            .accounts
-            .entry(raw.client)
-            .or_insert_with(|| Account::new(raw.client));
+        //Skip if the client is missing
+        let Some(account) = self.accounts.get_mut(&raw.client) else {
+            log::warn!("dispute tx {} for unknown client, skipping", raw.tx);
+            return Ok(());
+        };
 
         if let Err(e) = account.dispute(amount) {
             self.transactions.get_mut(&raw.tx).unwrap().state = TxState::Active;
@@ -155,10 +156,11 @@ impl Engine {
 
         let amount = tx.amount;
 
-        let account = self
-            .accounts
-            .entry(raw.client)
-            .or_insert_with(|| Account::new(raw.client));
+        //Skip if the client is missing
+        let Some(account) = self.accounts.get_mut(&raw.client) else {
+            log::warn!("resolve tx {} for unknown client, skipping", raw.tx);
+            return Ok(());
+        };
 
         if let Err(e) = account.resolve(amount) {
             log::warn!("resolve tx {} account mutation failed: {}", raw.tx, e);
@@ -192,10 +194,11 @@ impl Engine {
 
         let amount = tx.amount;
 
-        let account = self
-            .accounts
-            .entry(raw.client)
-            .or_insert_with(|| Account::new(raw.client));
+        //Skip if the client is missing
+        let Some(account) = self.accounts.get_mut(&raw.client) else {
+            log::warn!("chargeback tx {} for unknown client, skipping", raw.tx);
+            return Ok(());
+        };
 
         if let Err(e) = account.chargeback(amount) {
             log::warn!("chargeback tx {} account mutation failed: {}", raw.tx, e);
