@@ -84,3 +84,186 @@ impl Account {
         Ok(())
     }
 }
+
+#[cfg(test)]
+
+mod tests {
+    use super::*;
+
+    fn amt(s: &str) -> Amount {
+        s.parse().unwrap()
+    }
+
+    fn create_account() -> Account {
+        Account::new(1)
+    }
+
+    #[test]
+    fn deposit_increases_available() {
+        let mut account = create_account();
+        let amount = amt("1.0");
+
+        account.deposit(amount).unwrap();
+
+        assert_eq!(account.available, amount);
+        assert_eq!(account.held, Amount::ZERO);
+    }
+
+    #[test]
+    fn deposit_on_lock_account_fails() {
+        let mut account = create_account();
+        account.locked = true;
+
+        let amount = amt("1.0");
+        let err = account.deposit(amount).unwrap_err();
+
+        assert!(matches!(err, AmountError::AccountLocked));
+    }
+
+    #[test]
+    fn deposit_accumulates() {
+        let mut account = create_account();
+        let amount = amt("1.0");
+
+        account.deposit(amount).unwrap();
+        account.deposit(amount).unwrap();
+
+        assert_eq!(account.available, amt("2.0"));
+    }
+
+    #[test]
+    fn deposit_overflow_fails() {
+        let mut account = create_account();
+
+        account.deposit(Amount::MAX).unwrap();
+        let err = account.deposit(amt("1.0")).unwrap_err();
+
+        assert!(matches!(err, AmountError::Overflow));
+    }
+
+    #[test]
+    fn withdraw_decreases_available() {
+        let mut account = create_account();
+        let amount_1 = amt("2.0");
+        let amount_2 = amt("1.0");
+
+        account.deposit(amount_1).unwrap();
+
+        account.withdraw(amount_2).unwrap();
+
+        assert_eq!(account.available, amount_2);
+        assert_eq!(account.held, Amount::ZERO);
+    }
+
+    #[test]
+    fn withdraw_on_locked_account_fails() {
+        let mut account = create_account();
+        account.deposit(amt("10.0")).unwrap();
+        account.locked = true;
+
+        let err = account.withdraw(amt("1.0")).unwrap_err();
+
+        assert!(matches!(err, AmountError::AccountLocked));
+    }
+
+    #[test]
+    fn withdraw_insufficient_funds_fails() {
+        let mut account = create_account();
+        account.deposit(amt("1.0")).unwrap();
+
+        let err = account.withdraw(amt("2.0")).unwrap_err();
+
+        assert!(matches!(err, AmountError::InsufficientFunds));
+    }
+
+    #[test]
+    fn dispute_moves_funds_to_held() {
+        let mut account = create_account();
+        account.deposit(amt("5.0")).unwrap();
+
+        account.dispute(amt("2.0")).unwrap();
+
+        assert_eq!(account.available, amt("3.0"));
+        assert_eq!(account.held, amt("2.0"));
+    }
+
+    #[test]
+    fn dispute_on_locked_account_fails() {
+        let mut account = create_account();
+        account.deposit(amt("5.0")).unwrap();
+        account.locked = true;
+
+        let err = account.dispute(amt("1.0")).unwrap_err();
+
+        assert!(matches!(err, AmountError::AccountLocked));
+    }
+
+    #[test]
+    fn dispute_insufficient_funds_fails() {
+        let mut account = create_account();
+        account.deposit(amt("1.0")).unwrap();
+
+        let err = account.dispute(amt("2.0")).unwrap_err();
+
+        assert!(matches!(err, AmountError::InsufficientFunds));
+    }
+
+    #[test]
+    fn resolve_moves_funds_back_to_available() {
+        let mut account = create_account();
+        account.deposit(amt("5.0")).unwrap();
+        account.dispute(amt("2.0")).unwrap();
+
+        account.resolve(amt("2.0")).unwrap();
+
+        assert_eq!(account.available, amt("5.0"));
+        assert_eq!(account.held, Amount::ZERO);
+    }
+
+    #[test]
+    fn resolve_on_locked_account_fails() {
+        let mut account = create_account();
+        account.deposit(amt("5.0")).unwrap();
+        account.dispute(amt("2.0")).unwrap();
+        account.locked = true;
+
+        let err = account.resolve(amt("2.0")).unwrap_err();
+
+        assert!(matches!(err, AmountError::AccountLocked));
+    }
+
+    #[test]
+    fn resolve_insufficient_held_fails() {
+        let mut account = create_account();
+        account.deposit(amt("5.0")).unwrap();
+        account.dispute(amt("1.0")).unwrap();
+
+        let err = account.resolve(amt("2.0")).unwrap_err();
+
+        assert!(matches!(err, AmountError::InsufficientFunds));
+    }
+
+    #[test]
+    fn chargeback_removes_held_and_locks_account() {
+        let mut account = create_account();
+        account.deposit(amt("5.0")).unwrap();
+        account.dispute(amt("2.0")).unwrap();
+
+        account.chargeback(amt("2.0")).unwrap();
+
+        assert_eq!(account.held, Amount::ZERO);
+        assert_eq!(account.available, amt("3.0"));
+        assert!(account.locked);
+    }
+
+    #[test]
+    fn chargeback_insufficient_held_fails() {
+        let mut account = create_account();
+        account.deposit(amt("5.0")).unwrap();
+        account.dispute(amt("1.0")).unwrap();
+
+        let err = account.chargeback(amt("2.0")).unwrap_err();
+
+        assert!(matches!(err, AmountError::InsufficientFunds));
+    }
+}

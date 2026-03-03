@@ -2,6 +2,8 @@ use crate::error::AmountError;
 use std::fmt;
 use std::str::FromStr;
 
+// Stores amounts as fixed-point i64 scaled by 10_000 (4 decimal places).
+// Max representable value: i64::MAX / 10_000
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub struct Amount(i64); //ensures type safety at compile time
 
@@ -9,6 +11,7 @@ const PRECISION: i64 = 10_000; //10 ** 4
 
 impl Amount {
     pub const ZERO: Amount = Amount(0);
+    pub const MAX: Amount = Amount(i64::MAX);
 
     // Add two amounts. Returns error on overflow.
     pub fn checked_add(self, other: Amount) -> Result<Amount, AmountError> {
