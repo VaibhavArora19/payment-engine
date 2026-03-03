@@ -34,7 +34,7 @@ impl Account {
         Ok(())
     }
 
-    /// Debit available funds. Called on withdrawal.
+    //Debit available funds. Called on withdrawal
     pub fn withdraw(&mut self, amount: Amount) -> Result<(), AmountError> {
         if self.locked {
             return Err(AmountError::AccountLocked);
@@ -47,7 +47,7 @@ impl Account {
         Ok(())
     }
 
-    /// Move funds from available -> held. Called on dispute
+    //Move funds from available -> held. Called on dispute
     pub fn dispute(&mut self, amount: Amount) -> Result<(), AmountError> {
         if self.locked {
             return Err(AmountError::AccountLocked);
@@ -60,7 +60,7 @@ impl Account {
         Ok(())
     }
 
-    /// Move funds from held → available. Called on resolve.
+    //Move funds from held → available. Called on resolve
     pub fn resolve(&mut self, amount: Amount) -> Result<(), AmountError> {
         if self.locked {
             return Err(AmountError::AccountLocked);
@@ -73,8 +73,7 @@ impl Account {
         Ok(())
     }
 
-    //TODO: Chargeback needs improvements and changes read description carefully and implement
-    /// Remove held funds entirely + lock account. Called on chargeback.
+    //Remove held funds entirely + lock account. Called on chargeback.
     pub fn chargeback(&mut self, amount: Amount) -> Result<(), AmountError> {
         if !self.held.is_gte(amount) {
             return Err(AmountError::InsufficientFunds);
