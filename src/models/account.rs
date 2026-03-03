@@ -2,6 +2,7 @@ use crate::{error::AmountError, models::amount::Amount};
 
 /// Fields ordered largest-to-smallest alignment: 24 bytes total, no wasted padding.
 /// 5 bytes padding to reach next 8-byte boundary
+#[derive(Debug)]
 pub struct Account {
     pub available: Amount,
     pub held: Amount,

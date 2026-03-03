@@ -7,5 +7,5 @@ edition = "2024"
 csv = "1.4.0"
 serde = { version = "1.0.228", features = ["derive"] }
 thiserror = "2.0.18"
-log = { version = "0.4.28", features = ["kv_serde"]}
+log = "0.4"
 env_logger = "0.11"

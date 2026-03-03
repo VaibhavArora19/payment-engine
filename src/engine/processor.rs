@@ -47,11 +47,15 @@ impl Engine {
     fn deposit(&mut self, raw: RawTransaction) -> Result<(), AppError> {
         let amount = match raw.amount {
             Some(a) => a,
-            None => return Ok(()), // malformed, skip
+            None => {
+                log::warn!("deposit tx {} has no amount, skipping", raw.tx);
+                return Ok(());
+            }
         };
 
         // guard: duplicate tx_ids are ignored entirely
         if self.transactions.contains_key(&raw.tx) {
+            log::warn!("deposit tx {} is a duplicate, skipping", raw.tx);
             return Ok(());
         }
 
@@ -82,7 +86,10 @@ impl Engine {
     fn withdrawal(&mut self, raw: RawTransaction) -> Result<(), AppError> {
         let amount = match raw.amount {
             Some(a) => a,
-            None => return Ok(()),
+            None => {
+                log::warn!("withdrawal tx {} has no amount, skipping", raw.tx);
+                return Ok(());
+            }
         };
 
         //Do not add withdrawal for unknown client
@@ -119,7 +126,6 @@ impl Engine {
         }
 
         let amount = tx.amount;
-        tx.state = TxState::Disputed;
 
         //Skip if the client is missing
         let Some(account) = self.accounts.get_mut(&raw.client) else {
@@ -127,10 +133,13 @@ impl Engine {
             return Ok(());
         };
 
+        // Mark disputed only after we know the account exists
         if let Err(e) = account.dispute(amount) {
-            self.transactions.get_mut(&raw.tx).unwrap().state = TxState::Active;
             log::warn!("dispute tx {} account mutation failed: {}", raw.tx, e);
+            return Ok(());
         }
+
+        self.transactions.get_mut(&raw.tx).unwrap().state = TxState::Disputed;
 
         Ok(())
     }
