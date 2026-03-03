@@ -14,12 +14,14 @@ pub struct RawTransaction {
 }
 
 /// Processed transaction stored in the engine's hashmap.
-/// Only deposits and withdrawals are stored (needed for dispute lookups).
+/// Only deposits are stored (needed for dispute lookups).
+/// Fields ordered largest-to-smallest alignment to eliminate padding: 16 bytes total.
+/// 1 bytes padding to reach next 8-byte boundary
 #[derive(Debug, Clone)]
 pub struct Transaction {
+    pub amount: Amount,
     pub tx_id: u32,
     pub client_id: u16,
-    pub amount: Amount,
     pub state: TxState,
 }
 
@@ -38,3 +40,8 @@ pub enum TxState {
     Active,   // normal, nothing happening
     Disputed, // under dispute, amount is held
 }
+
+const _: () = assert!(std::mem::size_of::<Transaction>() == 16);
+// RawTransaction: Option<Amount> is 16 bytes (no niche in i64), dominates layout.
+// Reordering fields gives no benefit — size is 24 bytes either way.
+const _: () = assert!(std::mem::size_of::<RawTransaction>() == 24);

@@ -1,12 +1,15 @@
 use crate::{error::AmountError, models::amount::Amount};
 
-//i64 + i64 + u16 + bool -> 8 + 8 + 2 + 1 bytes -> 24 bytes(efficient data packing)
+/// Fields ordered largest-to-smallest alignment: 24 bytes total, no wasted padding.
+/// 5 bytes padding to reach next 8-byte boundary
 pub struct Account {
     pub available: Amount,
     pub held: Amount,
     pub client: u16,
     pub locked: bool,
 }
+
+const _: () = assert!(std::mem::size_of::<Account>() == 24);
 
 impl Account {
     pub fn new(client: u16) -> Self {
