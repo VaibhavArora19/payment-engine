@@ -72,19 +72,9 @@ Transaction IDs are `u32`, meaning up to **4,294,967,295** unique transactions a
 4,294,967,295 entries × ~48 bytes each (16 bytes for the Transaction struct and 32 bytes of HashMap overhead) ≈ 206 GB
 ```
 
-This is obviously not viable. The engine uses three strategies to keep memory bounded:
+This is obviously not viable. The spec guarantees tx_ids are globally unique, so no deduplication structure is needed. The engine uses one strategy to keep memory bounded:
 
-**1. Only deposits are stored**
-
-Withdrawals can never be disputed per the spec, so they are never written to the transactions `HashMap`. This immediately halves the worst-case memory footprint.
-
-**2. Terminal states are pruned immediately**
-
-When a transaction is resolved or charged back, it is removed from the map (`transactions.remove(&tx_id)`). Once in a terminal state, a transaction can never be acted on again, so there is no reason to retain it.
-
-**3. Only active surface is in memory at any point**
-
-The `HashMap` at any moment contains only deposits that are either `Active` (could be disputed in future) or `Disputed` (currently under dispute). Everything else is gone.
+**Only the live disputable surface is kept.** Withdrawals are never stored (they cannot be disputed). When a deposit is resolved or charged back it is removed immediately once terminal it can never be acted on again. The `deposits` map at any moment holds only deposits that are `Active` or `Disputed`.
 
 **Practical memory bound on a 16 GB machine:**
 
@@ -152,7 +142,7 @@ Covers parsing (integer, decimals, whitespace, overflow, negative, too many deci
 Covers all five operations (deposit, withdraw, dispute, resolve, chargeback) with happy paths and every error path: locked account, insufficient funds, overflow.
 
 **Unit tests — `Engine`** (`src/engine/processor.rs`)
-Covers every transaction type end-to-end including all skip conditions: unknown tx, client mismatch, non-active/non-disputed state, missing amount, duplicate tx ID, ghost account prevention on withdrawal for unknown client, and the dispute state rollback on account mutation failure.
+Covers every transaction type end-to-end including all skip conditions: unknown tx, client mismatch, non-active/non-disputed state, missing amount, ghost account prevention on withdrawal for unknown client, and the dispute state rollback on account mutation failure.
 
 **Integration tests** (`tests/integration_test.rs`)
 Runs the compiled binary as a subprocess against real CSV fixtures and asserts the exact stdout output. Covers deposit/withdrawal, insufficient funds, dispute→resolve, dispute→chargeback (with subsequent locked-account deposit ignored), multiple independent clients, and a full combined scenario.

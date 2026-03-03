@@ -10,7 +10,7 @@ pub struct Engine {
     /// Withdrawals are never stored as they cannot be disputed.
     /// Entries are removed on Resolve/Chargeback so only the live
     /// disputable surface stays in memory at any point.
-    transactions: HashMap<u32, Transaction>,
+    deposits: HashMap<u32, Transaction>,
 }
 
 impl Default for Engine {
@@ -23,7 +23,7 @@ impl Engine {
     pub fn new() -> Self {
         Self {
             accounts: HashMap::new(),
-            transactions: HashMap::new(),
+            deposits: HashMap::new(),
         }
     }
 
@@ -53,12 +53,6 @@ impl Engine {
             }
         };
 
-        // guard: duplicate tx_ids are ignored entirely
-        if self.transactions.contains_key(&raw.tx) {
-            log::warn!("deposit tx {} is a duplicate, skipping", raw.tx);
-            return Ok(());
-        }
-
         let account = self
             .accounts
             .entry(raw.client)
@@ -70,7 +64,7 @@ impl Engine {
         }
 
         //Only deposits are stored since they are the only type that can be disputed
-        self.transactions.insert(
+        self.deposits.insert(
             raw.tx,
             Transaction {
                 tx_id: raw.tx,
@@ -100,14 +94,14 @@ impl Engine {
 
         if let Err(e) = account.withdraw(amount) {
             log::warn!("withdrawal tx {} failed: {}", raw.tx, e);
+            return Ok(());
         }
 
-        //Withdrawals are not stored as they cannot be disputed.
         Ok(())
     }
 
     fn dispute(&mut self, raw: RawTransaction) -> Result<(), AppError> {
-        let tx = match self.transactions.get_mut(&raw.tx) {
+        let tx = match self.deposits.get_mut(&raw.tx) {
             Some(t) => t,
             None => {
                 log::warn!("dispute tx {} not found, skipping", raw.tx);
@@ -139,13 +133,13 @@ impl Engine {
             return Ok(());
         }
 
-        self.transactions.get_mut(&raw.tx).unwrap().state = TxState::Disputed;
+        self.deposits.get_mut(&raw.tx).unwrap().state = TxState::Disputed;
 
         Ok(())
     }
 
     fn resolve(&mut self, raw: RawTransaction) -> Result<(), AppError> {
-        let tx = match self.transactions.get_mut(&raw.tx) {
+        let tx = match self.deposits.get_mut(&raw.tx) {
             Some(t) => t,
             None => {
                 log::warn!("resolve tx {} not found, skipping", raw.tx);
@@ -177,13 +171,13 @@ impl Engine {
         }
 
         //Prune from memory as this tx can never be acted on again.
-        self.transactions.remove(&raw.tx);
+        self.deposits.remove(&raw.tx);
 
         Ok(())
     }
 
     fn chargeback(&mut self, raw: RawTransaction) -> Result<(), AppError> {
-        let tx = match self.transactions.get_mut(&raw.tx) {
+        let tx = match self.deposits.get_mut(&raw.tx) {
             Some(t) => t,
             None => {
                 log::warn!("chargeback tx {} not found, skipping", raw.tx);
@@ -215,7 +209,7 @@ impl Engine {
         }
 
         //prune from memory since this tx can never be acted on again
-        self.transactions.remove(&raw.tx);
+        self.deposits.remove(&raw.tx);
 
         Ok(())
     }
@@ -295,18 +289,9 @@ mod tests {
         let mut engine = Engine::new();
         engine.process(raw_deposit(1, 1, "100.0")).unwrap();
 
-        assert_eq!(engine.transactions[&1].state, TxState::Active);
+        assert_eq!(engine.deposits[&1].state, TxState::Active);
     }
 
-    #[test]
-    fn deposit_duplicate_tx_id_ignored() {
-        let mut engine = Engine::new();
-        engine.process(raw_deposit(1, 1, "100.0")).unwrap();
-        engine.process(raw_deposit(1, 1, "50.0")).unwrap();
-
-        // only first deposit applied
-        assert_eq!(engine.accounts[&1].available, amt("100.0"));
-    }
 
     #[test]
     fn deposit_with_no_amount_skipped() {
@@ -349,7 +334,7 @@ mod tests {
         engine.process(raw_deposit(1, 1, "100.0")).unwrap();
         engine.process(raw_withdrawal(1, 2, "40.0")).unwrap();
 
-        assert!(!engine.transactions.contains_key(&2));
+        assert!(!engine.deposits.contains_key(&2));
     }
 
     #[test]
@@ -371,7 +356,7 @@ mod tests {
         let account = &engine.accounts[&1];
         assert_eq!(account.available, Amount::ZERO);
         assert_eq!(account.held, amt("100.0"));
-        assert_eq!(engine.transactions[&1].state, TxState::Disputed);
+        assert_eq!(engine.deposits[&1].state, TxState::Disputed);
     }
 
     #[test]
@@ -391,7 +376,7 @@ mod tests {
         engine.process(raw_dispute(2, 1)).unwrap(); // client 2 disputes tx owned by client 1
 
         assert_eq!(engine.accounts[&1].available, amt("100.0"));
-        assert_eq!(engine.transactions[&1].state, TxState::Active);
+        assert_eq!(engine.deposits[&1].state, TxState::Active);
     }
 
     #[test]
@@ -426,7 +411,7 @@ mod tests {
         engine.process(raw_dispute(1, 1)).unwrap();
         engine.process(raw_resolve(1, 1)).unwrap();
 
-        assert!(!engine.transactions.contains_key(&1));
+        assert!(!engine.deposits.contains_key(&1));
     }
 
     #[test]
@@ -436,7 +421,7 @@ mod tests {
         engine.process(raw_resolve(1, 1)).unwrap(); // tx is Active, not Disputed
 
         assert_eq!(engine.accounts[&1].available, amt("100.0"));
-        assert!(engine.transactions.contains_key(&1)); // not pruned
+        assert!(engine.deposits.contains_key(&1)); // not pruned
     }
 
     // --------------- Chargeback ---------------
@@ -461,7 +446,7 @@ mod tests {
         engine.process(raw_dispute(1, 1)).unwrap();
         engine.process(raw_chargeback(1, 1)).unwrap();
 
-        assert!(!engine.transactions.contains_key(&1));
+        assert!(!engine.deposits.contains_key(&1));
     }
 
     #[test]
@@ -471,7 +456,7 @@ mod tests {
         engine.process(raw_chargeback(1, 1)).unwrap(); // tx is Active, not Disputed
 
         assert!(!engine.accounts[&1].locked);
-        assert!(engine.transactions.contains_key(&1)); // not pruned
+        assert!(engine.deposits.contains_key(&1)); // not pruned
     }
 
     #[test]
@@ -534,7 +519,7 @@ mod tests {
         engine.process(raw_dispute(1, 1)).unwrap();
 
         // tx 1 state will be active
-        assert_eq!(engine.transactions[&1].state, TxState::Active);
+        assert_eq!(engine.deposits[&1].state, TxState::Active);
         assert_eq!(engine.accounts[&1].held, Amount::ZERO);
     }
 
@@ -557,7 +542,7 @@ mod tests {
 
         engine.process(raw_resolve(2, 1)).unwrap(); // client 2 resolves tx owned by client 1
 
-        assert_eq!(engine.transactions[&1].state, TxState::Disputed);
+        assert_eq!(engine.deposits[&1].state, TxState::Disputed);
         assert_eq!(engine.accounts[&1].held, amt("100.0"));
     }
 
@@ -581,7 +566,7 @@ mod tests {
 
         engine.process(raw_chargeback(2, 1)).unwrap(); // client 2 charges back tx owned by client 1
 
-        assert_eq!(engine.transactions[&1].state, TxState::Disputed); // still disputed
+        assert_eq!(engine.deposits[&1].state, TxState::Disputed); // still disputed
         assert!(!engine.accounts[&1].locked);
     }
 }
