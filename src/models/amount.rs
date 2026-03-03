@@ -97,3 +97,127 @@ impl<'de> serde::Deserialize<'de> for Amount {
         s.parse::<Amount>().map_err(serde::de::Error::custom)
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn amt(s: &str) -> Amount {
+        s.parse().unwrap()
+    }
+
+    // --------------Parse tests-----------------
+    #[test]
+    fn parse_integer() {
+        assert_eq!(amt("1"), Amount(10_000));
+    }
+
+    #[test]
+    fn parse_one_decimal() {
+        assert_eq!(amt("1.5"), Amount(15_000));
+    }
+
+    #[test]
+    fn parse_four_decimals() {
+        assert_eq!(amt("1.5000"), Amount(15_000));
+    }
+
+    #[test]
+    fn parse_max_precision() {
+        assert_eq!(amt("0.0001"), Amount(1));
+    }
+
+    #[test]
+    fn parse_whitespace_trimmed() {
+        assert_eq!(amt("  1.5  "), Amount(15_000));
+    }
+
+    #[test]
+    fn parse_zero() {
+        assert_eq!(amt("0.0"), Amount::ZERO);
+    }
+
+    #[test]
+    fn parse_too_many_decimals() {
+        let err = "1.00001".parse::<Amount>().unwrap_err();
+        assert!(matches!(err, AmountError::TooManyDecimalPlaces(_)));
+    }
+
+    #[test]
+    fn parse_invalid_format() {
+        let err = "abc".parse::<Amount>().unwrap_err();
+        assert!(matches!(err, AmountError::InvalidFormat(_)));
+    }
+
+    #[test]
+    fn parse_negative_rejected() {
+        let err = "-1.0".parse::<Amount>().unwrap_err();
+        assert!(matches!(err, AmountError::Negative));
+    }
+
+    // --------------Display tests-----------------
+
+    #[test]
+    fn display_round_trip() {
+        assert_eq!(amt("1.5000").to_string(), "1.5000");
+    }
+
+    #[test]
+    fn display_zero_pads_fraction() {
+        assert_eq!(amt("1.5").to_string(), "1.5000");
+    }
+
+    #[test]
+    fn display_zero() {
+        assert_eq!(Amount::ZERO.to_string(), "0.0000");
+    }
+
+    // --------------Addition-----------------
+
+    #[test]
+    fn add_two_amounts() {
+        assert_eq!(amt("1.0").checked_add(amt("2.0")).unwrap(), amt("3.0"));
+    }
+
+    #[test]
+    fn add_overflow() {
+        let max = Amount(i64::MAX);
+        let err = max.checked_add(Amount(1)).unwrap_err();
+        assert!(matches!(err, AmountError::Overflow));
+    }
+
+    // --------------Subtraction-----------------
+
+    #[test]
+    fn sub_exact() {
+        assert_eq!(amt("5.0").checked_sub(amt("3.0")).unwrap(), amt("2.0"));
+    }
+
+    #[test]
+    fn sub_to_zero() {
+        assert_eq!(amt("1.0").checked_sub(amt("1.0")).unwrap(), Amount::ZERO);
+    }
+
+    #[test]
+    fn sub_insufficient_funds() {
+        let err = amt("1.0").checked_sub(amt("2.0")).unwrap_err();
+        assert!(matches!(err, AmountError::InsufficientFunds));
+    }
+
+    // --------------Comparison test-----------------
+
+    #[test]
+    fn gte_greater() {
+        assert!(amt("2.0").is_gte(amt("1.0")));
+    }
+
+    #[test]
+    fn gte_equal() {
+        assert!(amt("1.0").is_gte(amt("1.0")));
+    }
+
+    #[test]
+    fn gte_less() {
+        assert!(!amt("1.0").is_gte(amt("2.0")));
+    }
+}
